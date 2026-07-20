@@ -28,7 +28,9 @@ const listRows = [
   ["WO-CN-20260720-0151", "关联订单信息暂时加载失败", "in_progress", "ORD-20260719-58911", "Boston Garden Inn", "2026-07-24", "周宁", "10:31"],
 ] as const;
 
-function routeNow() { if (typeof window === "undefined") return "/dashboard"; return window.location.pathname === "/" ? "/dashboard" : window.location.pathname; }
+const githubPagesBase = "/hotel-b2b-work-order-demo";
+function activeBase() { if (typeof window === "undefined") return ""; return window.location.pathname === githubPagesBase || window.location.pathname.startsWith(`${githubPagesBase}/`) ? githubPagesBase : ""; }
+function routeNow() { if (typeof window === "undefined") return "/dashboard"; const path = window.location.pathname.slice(activeBase().length); return !path || path === "/" ? "/dashboard" : path; }
 function fmtNow() { return "2026-07-20 12:08"; }
 
 export function Workbench() {
@@ -51,7 +53,7 @@ export function Workbench() {
   useEffect(() => { localStorage.setItem("hotel-workbench-v1", JSON.stringify({ order, events, currentUserId, view })); }, [order, events, currentUserId, view]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(""), 3200); return () => clearTimeout(t); }, [toast]);
 
-  function go(path: string) { history.pushState({}, "", path); setRoute(path); setMobileNav(false); window.scrollTo(0, 0); }
+  function go(path: string) { history.pushState({}, "", `${activeBase()}${path}`); setRoute(path); setMobileNav(false); window.scrollTo(0, 0); }
   function append(action: string, content: string, result: string, outcome?: "failure") { setEvents(es => [{ id: crypto.randomUUID(), type: "work_order", time: fmtNow(), actor: user.name, action, content, result, outcome }, ...es]); }
   function perform(action: Action, content = "") {
     try {
