@@ -1,0 +1,32 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(16 24 39 / 60%);
+}
+
+.confirm-dialog {
+  width: min(420px, 100%);
+  padding: 28px;
+  background: white;
+  border-top: 3px solid var(--primary);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 30%);
+}
+
+.dialog-symbol {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: var(--primary);
+  background: #e7f3f1;
+  font-weight: 800;
+}
+
+.confirm-dialog h2 { margin: 16px 0 8px; font: 20px Georgia, "Noto Serif SC", serif; }
+.confirm-dialog p { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.confirm-dialog > div { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>正在返回工作台…</title>
+    <script>
+      const base = "/hotel-b2b-work-order-demo";
+      const route = location.pathname.startsWith(base)
+        ? location.pathname.slice(base.length) || "/dashboard"
+        : "/dashboard";
+      location.replace(`${base}/#${route}${location.search}`);
+    </script>
+  </head>
+  <body>正在返回工作台…</body>
+</html>
