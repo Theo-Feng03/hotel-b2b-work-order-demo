@@ -30,3 +30,8 @@
 .confirm-dialog h2 { margin: 16px 0 8px; font: 20px Georgia, "Noto Serif SC", serif; }
 .confirm-dialog p { color: var(--muted); font-size: 12px; line-height: 1.7; }
 .confirm-dialog > div { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+.dialog-error { margin-top: 12px; padding: 10px; color: var(--danger); background: #fff0f0; font-size: 11px; }
+
+/* The main order has already been confirmed; keep its card aligned with the shared order facts. */
+.related-cards button:first-child em { font-size: 0; }
+.related-cards button:first-child em::after { content: "酒店已确认，待客服回写"; font-size: 9px; }

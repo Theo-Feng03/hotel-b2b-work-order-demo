@@ -3,7 +3,7 @@ export type Role = "domestic_customer_service" | "overseas_customer_service" | "
 export type Action = "accept" | "record" | "submit" | "confirm" | "return";
 
 export interface User { id: string; name: string; role: Role; team: string }
-export interface WorkOrder { id: string; title: string; description: string; expectedResult: string; status: WorkOrderStatus; assigneeId: string | null; confirmerId: string; finalResult?: string; version: number; updatedAt: string }
+export interface WorkOrder { id: string; title: string; description: string; expectedResult: string; status: WorkOrderStatus; assigneeId: string | null; confirmerId: string; reviewerId: string; finalSummary?: string; finalResult?: string; version: number; updatedAt: string }
 
 export const users: User[] = [
   { id: "lin", name: "林晓", role: "domestic_customer_service", team: "国内客服一组" },
@@ -19,7 +19,7 @@ export const initialWorkOrder: WorkOrder = {
   id: "WO-CN-20260720-0148", title: "临近入住，酒店尚未返回确认结果",
   description: "客户询问两间客房是否已由酒店确认，目前订单详情中尚无酒店确认号，请协助核实并回传结果。",
   expectedResult: "获得酒店确认结果，并将确认摘要回写到工单。", status: "pending_acceptance",
-  assigneeId: null, confirmerId: "chen", version: 1, updatedAt: "2026-07-20 09:32",
+  assigneeId: null, confirmerId: "chen", reviewerId: "chen", version: 1, updatedAt: "2026-07-20 09:32",
 };
 
 export function can(action: Action, order: WorkOrder, user: User): boolean {
