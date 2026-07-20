@@ -138,6 +138,7 @@ function Detail({ order, user, go, perform, ask }: { order: WorkOrder; user: typ
   const assignee = users.find(u => u.id === order.assigneeId);
   const allowed = can("accept", order, user) || can("record", order, user) || can("confirm", order, user);
   function confirm() { ask("confirm-accept-work-order", "接收这张工单？", "接收后工单进入进行中，当前处理人将变为林晓。", "确认接收", () => perform("accept")); return false; }
+  useEffect(() => { const status = document.querySelector<HTMLElement>(".related-cards button:first-child em"); if (status) status.textContent = "酒店已确认，待客服回写"; }, [order.status]);
   return <>
   <button className="back" onClick={() => go("/work-orders")}>← 返回工单列表</button><section className="ticket-header"><div><div className="ticket-id">{order.id} <Badge status={order.status} /></div><h2>{order.title}</h2><p>创建于 2026-07-20 09:32 · 最近更新 {order.updatedAt}</p></div><div className="ticket-owner"><span className="avatar">{assignee?.name[0] ?? "?"}</span><div><small>当前处理人</small><b>{assignee?.name ?? "未分配"}</b></div></div></section>
   <section className="completed-banner"><span>✓</span><div><small>当前最新进展 · 与原始问题分开展示</small><p>酒店已回复并返回确认号 HBR-731945；订单展示状态为“酒店已确认，待客服回写”。</p></div></section>
