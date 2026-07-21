@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Action, can, initialWorkOrder, transition, users, WorkOrder, WorkOrderStatus } from "../lib/domain";
+import { Action, can, initialWorkOrder, initialWorkOrders, transition, users, WorkOrder, WorkOrderStatus } from "../lib/domain";
 import { ConfirmDialog, DialogRequest } from "./ConfirmDialog";
 
 type EventType = "work_order" | "order" | "overseas" | "authorization" | "contact" | "system";
@@ -39,27 +39,32 @@ export function Workbench() {
   const [route, setRoute] = useState("/dashboard");
   const [mobileNav, setMobileNav] = useState(false);
   const [currentUserId, setCurrentUserId] = useState("lin");
-  const [order, setOrder] = useState<WorkOrder>(initialWorkOrder);
-  const [events, setEvents] = useState<TimelineEvent[]>(initialEvents);
+  const [orders, setOrders] = useState<Record<string, WorkOrder>>(initialWorkOrders);
+  const [eventsByOrderId, setEventsByOrderId] = useState<Record<string, TimelineEvent[]>>({ [initialWorkOrder.id]: initialEvents });
   const [scenario, setScenario] = useState<Scenario>("normal");
   const [toast, setToast] = useState("");
   const [dialog, setDialog] = useState<DialogRequest | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<ViewState>({ keyword: "", status: "", assignee: "all", from: "", to: "", page: 1 });
   const user = users.find(u => u.id === currentUserId) ?? users[0];
+  const routeOrderId = route.match(/^\/work-orders\/([^/]+)/)?.[1] ?? initialWorkOrder.id;
+  const order = orders[routeOrderId] ?? initialWorkOrders[routeOrderId] ?? initialWorkOrder;
+  const events = eventsByOrderId[order.id] ?? [];
 
   useEffect(() => {
     setRoute(routeNow());
     const saved = localStorage.getItem("hotel-workbench-v1");
-    if (saved) { try { const s = JSON.parse(saved); setOrder(s.order ?? initialWorkOrder); setEvents(s.events ?? initialEvents); setCurrentUserId(s.currentUserId ?? "lin"); setView(s.view ?? view); } catch {} }
+    if (saved) { try { const s = JSON.parse(saved); setOrders({ ...initialWorkOrders, ...(s.orders ?? {}), ...(s.order ? { [s.order.id]: s.order } : {}) }); setEventsByOrderId(s.eventsByOrderId ?? { [initialWorkOrder.id]: s.events ?? initialEvents }); setCurrentUserId(s.currentUserId ?? "lin"); setView(s.view ?? view); } catch {} }
+    setHydrated(true);
     const pop = () => setRoute(routeNow()); window.addEventListener("popstate", pop); window.addEventListener("hashchange", pop); return () => { window.removeEventListener("popstate", pop); window.removeEventListener("hashchange", pop); };
   }, []);
-  useEffect(() => { localStorage.setItem("hotel-workbench-v1", JSON.stringify({ order, events, currentUserId, view })); }, [order, events, currentUserId, view]);
-  useEffect(() => { const sync = (event: StorageEvent) => { if (event.key !== "hotel-workbench-v1" || !event.newValue) return; try { const saved = JSON.parse(event.newValue); setOrder(saved.order ?? initialWorkOrder); setEvents(saved.events ?? initialEvents); setCurrentUserId(saved.currentUserId ?? "lin"); setView(saved.view ?? view); } catch {} }; window.addEventListener("storage", sync); return () => window.removeEventListener("storage", sync); }, []);
+  useEffect(() => { if (hydrated) localStorage.setItem("hotel-workbench-v1", JSON.stringify({ orders, eventsByOrderId, currentUserId, view })); }, [hydrated, orders, eventsByOrderId, currentUserId, view]);
+  useEffect(() => { const sync = (event: StorageEvent) => { if (event.key !== "hotel-workbench-v1" || !event.newValue) return; try { const saved = JSON.parse(event.newValue); setOrders({ ...initialWorkOrders, ...(saved.orders ?? {}), ...(saved.order ? { [saved.order.id]: saved.order } : {}) }); setEventsByOrderId(saved.eventsByOrderId ?? { [initialWorkOrder.id]: saved.events ?? initialEvents }); setCurrentUserId(saved.currentUserId ?? "lin"); setView(saved.view ?? view); } catch {} }; window.addEventListener("storage", sync); return () => window.removeEventListener("storage", sync); }, []);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(""), 3200); return () => clearTimeout(t); }, [toast]);
 
   function go(path: string) { history.pushState({}, "", activeBase() ? `${githubPagesBase}/#${path}` : path); setRoute(path); setMobileNav(false); window.scrollTo(0, 0); }
   function ask(testId: string, title: string, body: string, confirmLabel: string, onConfirm: () => boolean | void | Promise<boolean | void>) { setDialog({ testId, title, body, confirmLabel, onConfirm, trigger: document.activeElement as HTMLElement | null }); }
-  function append(action: string, content: string, result: string, outcome?: "failure") { setEvents(es => [{ id: crypto.randomUUID(), type: "work_order", time: fmtNow(), actor: user.name, action, content, result, outcome }, ...es]); }
+  function append(action: string, content: string, result: string, outcome?: "failure") { setEventsByOrderId(all => ({ ...all, [order.id]: [{ id: crypto.randomUUID(), type: "work_order", time: fmtNow(), actor: user.name, action, content, result, outcome }, ...(all[order.id] ?? [])] })); }
   function perform(action: Action, content = "") {
     try {
       if (scenario === "conflict") throw new Error("工单状态已变化，已刷新到最新版本");
@@ -67,12 +72,12 @@ export function Workbench() {
       const next = transition(order, action, user);
       if (action === "submit") { next.finalSummary = content; next.reviewerId = order.confirmerId; }
       if (action === "confirm") next.finalResult = finalResult;
-      setOrder(next);
+      setOrders(all => ({ ...all, [order.id]: next }));
       const labels: Record<Action, [string, string]> = { accept: ["接收工单", "进入进行中"], record: ["添加处理记录", "记录成功"], submit: ["提交待确认", "进入待确认"], confirm: ["确认处理结果", "进入已办结"], return: ["退回继续处理", "回到进行中"] };
       append(labels[action][0], content || order.title, labels[action][1]); setToast(`${labels[action][0]}成功`); return true;
     } catch (e) { setToast(e instanceof Error ? e.message : "操作失败"); return false; }
   }
-  function reset() { ask("confirm-reset-demo", "重置全部 Demo 状态？", "当前角色、工单进度、时间线和列表筛选将恢复为初始值。", "确认重置", () => { localStorage.removeItem("hotel-workbench-v1"); setOrder(initialWorkOrder); setEvents(initialEvents); setCurrentUserId("lin"); setScenario("normal"); setView({ keyword: "", status: "", assignee: "all", from: "", to: "", page: 1 }); setToast("Demo 已恢复到待接收状态"); go("/dashboard"); return true; }); }
+  function reset() { ask("confirm-reset-demo", "重置全部 Demo 状态？", "当前角色、全部工单进度、时间线和列表筛选将恢复为初始值。", "确认重置", () => { localStorage.removeItem("hotel-workbench-v1"); setOrders(initialWorkOrders); setEventsByOrderId({ [initialWorkOrder.id]: initialEvents }); setCurrentUserId("lin"); setScenario("normal"); setView({ keyword: "", status: "", assignee: "all", from: "", to: "", page: 1 }); setToast("Demo 已恢复到初始状态"); go("/dashboard"); return true; }); }
   function openSharedPool() { setView({ keyword: "", status: "pending_acceptance", assignee: "unassigned", from: "", to: "", page: 1 }); go("/work-orders"); }
 
   const title = route === "/dashboard" ? "国内客服工作台" : route === "/work-orders" ? "工单列表" : route.endsWith("/order") ? "关联订单" : route.endsWith("/related") ? "关联任务与联系" : route.endsWith("/action") ? "处理动作" : route.endsWith("/timeline") ? "结果与事实时间线" : "工单详情";
@@ -102,7 +107,7 @@ export function Workbench() {
       <div className="page">
         <div className="page-heading"><div><span className="eyebrow">HOTEL SERVICE OPERATIONS</span><h1>{title}</h1><p>{subtitle(route)}</p></div><ScenarioSelect value={scenario} onChange={setScenario} /></div>
         {route === "/dashboard" && <Dashboard order={order} go={go} openSharedPool={openSharedPool} />}
-        {route === "/work-orders" && <WorkOrderList order={order} view={view} setView={setView} go={go} scenario={scenario} />}
+        {route === "/work-orders" && <WorkOrderList orders={orders} view={view} setView={setView} go={go} scenario={scenario} />}
         {route.match(/^\/work-orders\/[^/]+$/) && <Detail order={order} user={user} go={go} perform={perform} ask={ask} />}
         {route.endsWith("/order") && <OrderPage order={order} go={go} error={scenario === "order_error"} />}
         {route.endsWith("/related") && <RelatedPage go={go} />}
@@ -127,8 +132,8 @@ function Dashboard({ order, go, openSharedPool }: { order: WorkOrder; go: (p: st
   <div className="dashboard-grid"><section className="panel"><div className="panel-head"><h3>最近处理记录</h3><span>最近 6 条</span></div>{[["09:32","创建国内客服工单","陈岚","待接收"],["09:45","创建海外协同工单","陈岚","进行中"],["11:42","酒店返回确认号 HBR-731945","酒店预订部","已确认"]].map(x => <button className="activity" key={x[0]} onClick={() => go("/work-orders/WO-CN-20260720-0148")}><time>{x[0]}</time><span><b>{x[1]}</b><small>{x[2]} · WO-CN-20260720-0148</small></span><em>{x[3]}</em></button>)}</section><section className="panel priority"><div className="panel-head"><h3>优先关注</h3><span>按入住时间</span></div><div className="priority-card"><span className="urgent">距入住 2 天</span><h3>临近入住，酒店尚未返回确认结果</h3><p>原始问题 · 当前已收到酒店确认号</p><div><span>ORD-20260718-58321</span><Badge status={order.status} /></div><button className="secondary" onClick={() => go("/work-orders/WO-CN-20260720-0148")}>查看工单</button></div></section></div>
   </>; }
 
-function WorkOrderList({ order, view, setView, go, scenario }: { order: WorkOrder; view: ViewState; setView: (v: ViewState) => void; go: (p: string) => void; scenario: Scenario }) {
-  const rows = useMemo(() => { const source = listRows.map(r => r[0] === order.id ? [r[0], r[1], order.status, r[3], r[4], r[5], users.find(u => u.id === order.assigneeId)?.name ?? "未分配", order.updatedAt] as const : r); return scenario === "empty" ? [] : source.filter(r => (!view.keyword || [r[0], r[3], r[4]].some(v => v.toLowerCase().includes(view.keyword.toLowerCase()))) && (!view.status || r[2] === view.status) && (view.assignee === "all" || (view.assignee === "mine" ? r[6] === "林晓" : r[6] === "未分配")) && (!view.from || r[5] >= view.from) && (!view.to || r[5] <= view.to)); }, [order, view, scenario]);
+function WorkOrderList({ orders, view, setView, go, scenario }: { orders: Record<string, WorkOrder>; view: ViewState; setView: (v: ViewState) => void; go: (p: string) => void; scenario: Scenario }) {
+  const rows = useMemo(() => { const source = listRows.map(r => { const entity = orders[r[0]]; return entity ? [entity.id, entity.title, entity.status, r[3], r[4], r[5], users.find(u => u.id === entity.assigneeId)?.name ?? "未分配", entity.updatedAt] as const : r; }); return scenario === "empty" ? [] : source.filter(r => (!view.keyword || [r[0], r[3], r[4]].some(v => v.toLowerCase().includes(view.keyword.toLowerCase()))) && (!view.status || r[2] === view.status) && (view.assignee === "all" || (view.assignee === "mine" ? r[6] === "林晓" : r[6] === "未分配")) && (!view.from || r[5] >= view.from) && (!view.to || r[5] <= view.to)); }, [orders, view, scenario]);
   const clear = () => setView({ keyword: "", status: "", assignee: "all", from: "", to: "", page: 1 });
   return <section className="panel list-panel"><div className="filters"><label className="search">⌕<input aria-label="搜索工单号、订单号或酒店" placeholder="搜索工单号、订单号或酒店" value={view.keyword} onChange={e => setView({ ...view, keyword: e.target.value, page: 1 })} /></label><select aria-label="筛选工单状态" value={view.status} onChange={e => setView({ ...view, status: e.target.value })}><option value="">全部状态</option><option value="pending_acceptance">待接收</option><option value="in_progress">进行中</option><option value="pending_confirmation">待确认</option><option value="completed">已办结</option></select><select aria-label="筛选处理人" value={view.assignee} onChange={e => setView({ ...view, assignee: e.target.value })}><option value="all">全部处理人</option><option value="mine">我的工单</option><option value="unassigned">未分配</option></select><input aria-label="入住日期开始" type="date" value={view.from} onChange={e => setView({ ...view, from: e.target.value })} /><span className="dash">—</span><input aria-label="入住日期结束" type="date" value={view.to} onChange={e => setView({ ...view, to: e.target.value })} /><button className="ghost" onClick={clear}>清除</button></div>
   <div className="table-wrap"><table><thead><tr><th>工单 / 事项</th><th>状态</th><th>关联订单</th><th>入住日期</th><th>处理人</th><th>更新时间</th><th /></tr></thead><tbody>{rows.map(r => <tr key={r[0]} onClick={() => go(`/work-orders/${r[0]}`)}><td><b>{r[0]}</b><span>{r[1]}</span></td><td><Badge status={r[2]} /></td><td><b>{r[3]}</b><span>{r[4]}</span></td><td>{r[5]}</td><td><span className="avatar tiny">{r[6][0]}</span>{r[6]}</td><td>{r[7]}</td><td>›</td></tr>)}</tbody></table></div>{rows.length === 0 ? <div className="empty"><span>⌕</span><h3>没有符合条件的工单</h3><p>调整筛选条件，或清除后查看全部工单。</p><button className="secondary" onClick={clear}>清除筛选</button></div> : <div className="pagination"><span>共 {rows.length} 条 · 每页 10 条</span><button disabled>‹</button><button className="active">1</button><button disabled>›</button></div>}</section>;

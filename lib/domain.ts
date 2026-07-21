@@ -22,6 +22,36 @@ export const initialWorkOrder: WorkOrder = {
   assigneeId: null, confirmerId: "chen", reviewerId: "chen", version: 1, updatedAt: "2026-07-20 09:32",
 };
 
+export const initialWorkOrders: Record<string, WorkOrder> = {
+  [initialWorkOrder.id]: initialWorkOrder,
+  "WO-CN-20260720-0142": {
+    id: "WO-CN-20260720-0142", title: "酒店要求再次核对入住人拼写",
+    description: "酒店要求核对两位入住人的英文姓名拼写，请确认后回传。",
+    expectedResult: "完成入住人拼写核对并记录酒店反馈。", status: "in_progress",
+    assigneeId: "lin", confirmerId: "chen", reviewerId: "chen", version: 3, updatedAt: "2026-07-20 10:18",
+  },
+  "WO-CN-20260720-0137": {
+    id: "WO-CN-20260720-0137", title: "客户请求补充酒店确认摘要",
+    description: "客户希望获得包含房型、入住日期和确认号的完整确认摘要。",
+    expectedResult: "补充确认摘要并提交需求方确认。", status: "pending_confirmation",
+    assigneeId: "zhou", confirmerId: "chen", reviewerId: "chen", version: 4, updatedAt: "2026-07-20 10:02",
+    finalSummary: "已补充房型、入住日期及酒店确认号，等待需求方确认。",
+  },
+  "WO-CN-20260719-0124": {
+    id: "WO-CN-20260719-0124", title: "酒店确认信息已回传",
+    description: "酒店确认信息已收到，需要完成内部记录和闭环。",
+    expectedResult: "确认信息完整并办结工单。", status: "completed",
+    assigneeId: "lin", confirmerId: "chen", reviewerId: "chen", version: 6, updatedAt: "2026-07-19 18:40",
+    finalSummary: "酒店确认信息已完整记录。", finalResult: "确认信息完整，工单已办结。",
+  },
+  "WO-CN-20260720-0151": {
+    id: "WO-CN-20260720-0151", title: "关联订单信息暂时加载失败",
+    description: "关联订单区域暂时无法加载，需要排查并补充订单信息。",
+    expectedResult: "恢复订单信息展示并记录处理结果。", status: "in_progress",
+    assigneeId: "zhou", confirmerId: "chen", reviewerId: "chen", version: 2, updatedAt: "2026-07-20 10:31",
+  },
+};
+
 export function can(action: Action, order: WorkOrder, user: User): boolean {
   const supervisor = user.role === "supervisor";
   if (action === "accept") return order.status === "pending_acceptance" && !order.assigneeId && (user.role === "domestic_customer_service" || supervisor);
