@@ -31,6 +31,8 @@ const listRows = [
 ] as const;
 
 const githubPagesBase = "/hotel-b2b-work-order-demo";
+const storageKey = "hotel-workbench-v2";
+const legacyStorageKey = "hotel-workbench-v1";
 function activeBase() { if (typeof window === "undefined") return ""; return window.location.pathname === githubPagesBase || window.location.pathname.startsWith(`${githubPagesBase}/`) ? githubPagesBase : ""; }
 function routeNow() { if (typeof window === "undefined") return "/dashboard"; if (activeBase()) return window.location.hash.replace(/^#/, "") || "/dashboard"; const path = window.location.pathname; return !path || path === "/" ? "/dashboard" : path; }
 function fmtNow() { return "2026-07-20 12:08"; }
@@ -53,13 +55,13 @@ export function Workbench() {
 
   useEffect(() => {
     setRoute(routeNow());
-    const saved = localStorage.getItem("hotel-workbench-v1");
+    const saved = localStorage.getItem(storageKey) ?? localStorage.getItem(legacyStorageKey);
     if (saved) { try { const s = JSON.parse(saved); setOrders({ ...initialWorkOrders, ...(s.orders ?? {}), ...(s.order ? { [s.order.id]: s.order } : {}) }); setEventsByOrderId(s.eventsByOrderId ?? { [initialWorkOrder.id]: s.events ?? initialEvents }); setCurrentUserId(s.currentUserId ?? "lin"); setView(s.view ?? view); } catch {} }
     setHydrated(true);
     const pop = () => setRoute(routeNow()); window.addEventListener("popstate", pop); window.addEventListener("hashchange", pop); return () => { window.removeEventListener("popstate", pop); window.removeEventListener("hashchange", pop); };
   }, []);
-  useEffect(() => { if (hydrated) localStorage.setItem("hotel-workbench-v1", JSON.stringify({ orders, eventsByOrderId, currentUserId, view })); }, [hydrated, orders, eventsByOrderId, currentUserId, view]);
-  useEffect(() => { const sync = (event: StorageEvent) => { if (event.key !== "hotel-workbench-v1" || !event.newValue) return; try { const saved = JSON.parse(event.newValue); setOrders({ ...initialWorkOrders, ...(saved.orders ?? {}), ...(saved.order ? { [saved.order.id]: saved.order } : {}) }); setEventsByOrderId(saved.eventsByOrderId ?? { [initialWorkOrder.id]: saved.events ?? initialEvents }); setCurrentUserId(saved.currentUserId ?? "lin"); setView(saved.view ?? view); } catch {} }; window.addEventListener("storage", sync); return () => window.removeEventListener("storage", sync); }, []);
+  useEffect(() => { if (hydrated) localStorage.setItem(storageKey, JSON.stringify({ orders, eventsByOrderId, currentUserId, view })); }, [hydrated, orders, eventsByOrderId, currentUserId, view]);
+  useEffect(() => { const sync = (event: StorageEvent) => { if (event.key !== storageKey || !event.newValue) return; try { const saved = JSON.parse(event.newValue); setOrders({ ...initialWorkOrders, ...(saved.orders ?? {}) }); setEventsByOrderId(saved.eventsByOrderId ?? { [initialWorkOrder.id]: initialEvents }); setCurrentUserId(saved.currentUserId ?? "lin"); setView(saved.view ?? view); } catch {} }; window.addEventListener("storage", sync); return () => window.removeEventListener("storage", sync); }, []);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(""), 3200); return () => clearTimeout(t); }, [toast]);
 
   function go(path: string) { history.pushState({}, "", activeBase() ? `${githubPagesBase}/#${path}` : path); setRoute(path); setMobileNav(false); window.scrollTo(0, 0); }
@@ -77,7 +79,7 @@ export function Workbench() {
       append(labels[action][0], content || order.title, labels[action][1]); setToast(`${labels[action][0]}成功`); return true;
     } catch (e) { setToast(e instanceof Error ? e.message : "操作失败"); return false; }
   }
-  function reset() { ask("confirm-reset-demo", "重置全部 Demo 状态？", "当前角色、全部工单进度、时间线和列表筛选将恢复为初始值。", "确认重置", () => { localStorage.removeItem("hotel-workbench-v1"); setOrders(initialWorkOrders); setEventsByOrderId({ [initialWorkOrder.id]: initialEvents }); setCurrentUserId("lin"); setScenario("normal"); setView({ keyword: "", status: "", assignee: "all", from: "", to: "", page: 1 }); setToast("Demo 已恢复到初始状态"); go("/dashboard"); return true; }); }
+  function reset() { ask("confirm-reset-demo", "重置全部 Demo 状态？", "当前角色、全部工单进度、时间线和列表筛选将恢复为初始值。", "确认重置", () => { localStorage.removeItem(storageKey); localStorage.removeItem(legacyStorageKey); setOrders(initialWorkOrders); setEventsByOrderId({ [initialWorkOrder.id]: initialEvents }); setCurrentUserId("lin"); setScenario("normal"); setView({ keyword: "", status: "", assignee: "all", from: "", to: "", page: 1 }); setToast("Demo 已恢复到初始状态"); go("/dashboard"); return true; }); }
   function openSharedPool() { setView({ keyword: "", status: "pending_acceptance", assignee: "unassigned", from: "", to: "", page: 1 }); go("/work-orders"); }
 
   const title = route === "/dashboard" ? "国内客服工作台" : route === "/work-orders" ? "工单列表" : route.endsWith("/order") ? "关联订单" : route.endsWith("/related") ? "关联任务与联系" : route.endsWith("/action") ? "处理动作" : route.endsWith("/timeline") ? "结果与事实时间线" : "工单详情";

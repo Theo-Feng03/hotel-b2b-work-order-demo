@@ -48,6 +48,8 @@ test("persisted snapshot includes cross-tab synchronization and review facts", (
   const source = fs.readFileSync(new URL("../app/workbench.tsx", import.meta.url), "utf8");
   const domain = fs.readFileSync(new URL("../lib/domain.ts", import.meta.url), "utf8");
   assert.match(source, /addEventListener\("storage"/);
+  assert.match(source, /hotel-workbench-v2/);
+  assert.match(source, /event\.key !== storageKey/);
   assert.match(source, /next\.finalSummary = content/);
   assert.match(domain, /reviewerId: string/);
 });
